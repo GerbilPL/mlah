@@ -18,6 +18,14 @@ Each library is configured and built from its own directory. The repository does
 - A C++23 compiler
 - `nlohmann_json` for `glinguist`
 
+## Dependencies and licensing
+
+`gargs` and `glogger` use the C++ standard library. `glinguist` also depends on [nlohmann/json](https://github.com/nlohmann/json), a third-party library maintained outside this repository. Its upstream license is MIT (also called Expat); the installed package metadata may include additional notices for bundled components.
+
+The root [LICENSE](LICENSE) applies to this repository's own code. It does not claim ownership of third-party dependencies or replace their licenses. When redistributing a build, check the licenses and notices for the exact dependency versions you include and retain any required notices.
+
+In the library table, **static** means the library is linked into the consuming program, while **shared** means it is provided as a separate library loaded at runtime. A **dependency** is external software required to build or use a subproject.
+
 ## Build and test
 
 For `gargs` or `glogger`, configure, build, and run tests from the repository root:
