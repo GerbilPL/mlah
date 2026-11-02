@@ -1,4 +1,4 @@
-#include "gLogger.hpp"
+#include "glogger.hpp"
 
 namespace gLogger
 {
@@ -21,6 +21,7 @@ namespace gLogger
         if (!tmp.is_open()) return std::unexpected(false);
         
         std::string filename;
+        // The first line stores the log's start timestamp and becomes its archive name.
         if (!std::getline(tmp, filename)) return std::unexpected(false);
         
         if (!filename.empty() && filename.back() == '\r') filename.pop_back(); 
@@ -28,6 +29,11 @@ namespace gLogger
     }
 
     bool Logger::init(const std::string dirPath) {
+        // Close and clear the previous stream before opening a new destination.
+        initialized = false;
+        if (fhandle.is_open()) fhandle.close();
+        fhandle.clear();
+
         logDirPath = dirPath;
         if (!logDirPath.empty() && logDirPath.back() != '/' && logDirPath.back() != '\\') {
             logDirPath += "/";
@@ -40,6 +46,7 @@ namespace gLogger
 
         std::string fullPath = logDirPath + logFileName;
         if (std::filesystem::exists(fullPath)) {
+            // Preserve the previous run before truncating latest.log below.
             auto result = getPrevLogName();
             if (result) {
                 std::string newName = logDirPath + result.value() + ".log";
@@ -67,6 +74,7 @@ namespace gLogger
         
         if (consoleOutputEnabled) std::cout << logmess << std::endl;
         fhandle << logmess << "\n";
-        fhandle.flush(); // Zapewnia zapis przy crashu
+        // Flush each message so recent entries are less likely to be lost on a crash.
+        fhandle.flush();
     }
 }

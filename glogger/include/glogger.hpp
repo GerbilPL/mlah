@@ -1,4 +1,5 @@
 #pragma once
+#include "glogger_export.h"
 #include <string>
 #include <filesystem>
 #include <fstream>
@@ -13,9 +14,10 @@
 
 namespace gLogger
 {
+    /** @brief Severity/category labels written with each log message. */
     enum class LogLevel
     {
-        ERR = 0, // ERROR to często makro w Windows.h, lepiej ERR
+        ERR = 0, // Avoid colliding with the ERROR macro from Windows headers.
         DBG,
         WARN,
         INFO,
@@ -35,6 +37,14 @@ namespace gLogger
         }
     }
 
+    /**
+     * @class Logger
+     * @brief Synchronous logger that writes to the console and `latest.log`.
+     *
+     * Call `init()` before `log()`; messages sent before successful
+     * initialization are ignored. Calling `init()` again switches the output
+     * directory. A Logger instance is not safe for concurrent calls.
+     */
     class Logger
     {
     private:
@@ -48,13 +58,16 @@ namespace gLogger
         std::string getTimestamp(bool friendly = false);
 
     public:
-        Logger(bool consoleOutput = true);
-        ~Logger();
+        GLL_API Logger(bool consoleOutput = true);
+        GLL_API ~Logger();
 
-        bool init(const std::string dirPath = "logs");
-        void log(LogLevel lv, const std::string& msg);
+        GLL_API bool init(const std::string dirPath = "logs");
+        GLL_API void log(LogLevel lv, const std::string& msg);
 
-        // Helper do obsługi streamowania: logger(LogLevel::INFO) << "msg";
+        /**
+         * @brief Stream-built log message emitted when this temporary is destroyed.
+         * @details Example: `logger(LogLevel::INFO) << "port " << port;`.
+         */
         struct LogStreamer {
             Logger& parent;
             LogLevel level;

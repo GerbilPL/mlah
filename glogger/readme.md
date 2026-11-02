@@ -1,11 +1,6 @@
 # glogger
-A custom (probably badly written) logger.
 
-Features:
-- uses latest.log and renames to correct start date
-- path creation
-Planned features:
-- Better usage
-- Make it fully Object Oriented
-- Add a flag for RTTI and support it
+A small C++23 logger with console output, timestamped file output, and a C wrapper.
+
+See [documentation.md](documentation.md) for a quick example, build instructions, and behavior notes. The runnable C++ example is in [examples/basic.cpp](examples/basic.cpp).
 

@@ -1,8 +1,7 @@
-#include "gLinguist.hpp"
+#include "glinguist.hpp"
 
 namespace gLinguist
 {
-    // Używamy Linguist:: bo jesteśmy już w namespace gLinguist
     void Linguist::flattenJson(const json& j, std::string prefix, std::unordered_map<std::string, std::string>& targetMap) {
         for (auto& [key, value] : j.items()) {
             std::string fullKey = prefix.empty() ? key : prefix + "." + key;
@@ -13,6 +12,7 @@ namespace gLinguist
                 targetMap[fullKey] = value.get<std::string>();
             }
             else {
+                // Preserve non-string JSON leaves as their serialized JSON representation.
                 targetMap[fullKey] = value.dump();
             }
         }
@@ -21,13 +21,13 @@ namespace gLinguist
     bool Linguist::loadFileToData(const std::string& path, LocaleData& dataRef) {
         std::ifstream file(path);
         if (!file.is_open()) return false;
-        
+
         try {
             json j = json::parse(file);
             dataRef.mapping.clear();
-            
-            dataRef.ltr = j.value("ltr", true); 
-            
+
+            dataRef.ltr = j.value("ltr", true);
+
             if (j.contains("dict") && j["dict"].is_object()) {
                 flattenJson(j["dict"], "", dataRef.mapping);
             } else {
@@ -76,7 +76,7 @@ namespace gLinguist
                     meta.path = entry.path().string();
                     meta.code = j.value("id", "unknown");
                     meta.name = j.value("name", entry.path().stem().string());
-                    meta.ltr  = j.value("ltr", true);
+                    meta.ltr = j.value("ltr", true);
 
                     availableLocales.push_back(meta);
                     index++;
@@ -131,12 +131,11 @@ namespace gLinguist
         if (this->currentId != -1 && currentId < static_cast<int>(availableLocales.size())) {
             return availableLocales[currentId].ltr;
         }
-        return true; 
+        return true;
     }
-    
+
     std::string Linguist::getCurrentCode() {
-        // Poprawione z this. na this->
-         if (this->currentId != -1 && currentId < static_cast<int>(availableLocales.size())) {
+        if (this->currentId != -1 && currentId < static_cast<int>(availableLocales.size())) {
             return availableLocales[currentId].code;
         }
         return "none";
