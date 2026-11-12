@@ -7,7 +7,7 @@ Small C and C++ libraries, kept as independent subprojects.
 | Library | Purpose | Layout | Build type |
 | --- | --- | --- | --- |
 | [gargs](gargs/documentation.md) | Callback-based command-line parsing | `include/`, `src/`, `examples/`, `tests/` | Static only (`gargs`) |
-| [glogger](glogger/documentation.md) | Timestamped C++ and C logging | `include/`, `src/`, `examples/`, `tests/` | Shared only (`glogger`) |
+| [glogger](glogger/documentation.md) | Thread-safe C++23 and C logging | `include/`, `src/`, `examples/`, `tests/` | Shared by default; static selectable (`glogger`) |
 | [glinguist](glinguist/documentation.md) | JSON-backed locale lookup | `include/`, `src/` | Static only (`glinguist`) |
 
 Each library is configured and built from its own directory. The repository does not currently provide a combined root build.

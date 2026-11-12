@@ -1,15 +1,17 @@
 #pragma once
 
 #if defined(_WIN32) || defined(__CYGWIN__)
-    #ifdef GLOGGER_EXPORTS
-        #define GLL_API __declspec(dllexport)
+    #if defined(GLOGGER_BUILD_SHARED)
+        #if defined(GLOGGER_EXPORTS)
+            #define GLOGGER_API __declspec(dllexport)
+        #else
+            #define GLOGGER_API __declspec(dllimport)
+        #endif
     #else
-        #define GLL_API __declspec(dllimport)
+        #define GLOGGER_API
     #endif
+#elif defined(__GNUC__) && __GNUC__ >= 4
+    #define GLOGGER_API __attribute__((visibility("default")))
 #else
-    #if __GNUC__ >= 4
-        #define GLL_API __attribute__ ((visibility ("default")))
-    #else
-        #define GLL_API
-    #endif
+    #define GLOGGER_API
 #endif

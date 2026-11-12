@@ -1,6 +1,8 @@
-# glogger
+# glogger v2
 
-A small C++23 logger with console output, timestamped file output, and a C wrapper.
+A C++23 logging library with a stable C API. The C++ interface provides
+thread-safe logging, configurable active files and archival, custom levels,
+UTF-8 validation, and optional ASCII escaping.
 
-See [documentation.md](documentation.md) for a quick example, build instructions, and behavior notes. The runnable C++ example is in [examples/basic.cpp](examples/basic.cpp).
-
+See [documentation.md](documentation.md) for API details and build instructions.
+The benchmark is intentionally opt-in and is not a routine test.

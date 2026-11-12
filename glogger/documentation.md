@@ -1,42 +1,127 @@
-# glogger
+# glogger v2
 
-`glogger` writes timestamped messages to the console and to `latest.log`. The logger creates its output directory when needed.
+`glogger` is a synchronous, thread-safe C++23 logger with a C interoperability
+API. It serializes each record and configuration operation on a logger instance.
+Separate instances writing to the same file are not coordinated.
 
-Its CMake target is shared (`glogger`) and exports both the C wrapper and C++ `Logger` methods.
-
-## Quick example
+## C++ usage
 
 ```cpp
 #include "glogger.hpp"
 
-int main()
-{
-    gLogger::Logger log;
-    if (!log.init("logs")) {
+int main() {
+    glogger::LoggerOptions options;
+    options.directory = "logs";
+    options.active_filename = "server.log";
+    options.archive_policy = glogger::ArchivePolicy::IncrementingNumber;
+
+    glogger::Logger logger(options);
+    if (auto result = logger.initialize(); !result) {
         return 1;
     }
 
-    log.log(gLogger::LogLevel::INFO, "Application started");
-    log(gLogger::LogLevel::DBG) << "Connected to port " << 8080;
+    if (auto result = logger.log(glogger::Level::Info, "Server started"); !result) {
+        return 1;
+    }
+    return logger.logf(glogger::Level::Info, "Listening on port {}", 8080) ? 0 : 1;
 }
 ```
 
-The stream form emits its message when the temporary stream object is destroyed. Build the library and example from this directory with:
+`LoggerOptions` defaults to `logs/latest.log`, console output enabled, UTF-8
+text, and `ArchivePolicy::Overwrite`. The active filename must be a plain
+filename. A successful `initialize(options)` can reconfigure an existing logger;
+configuration changes are serialized with writes. Check every returned
+`glogger::Result`; errors contain an `ErrorCode` and diagnostic message.
+`flush()` explicitly reports delayed stream errors. Destroying a logger flushes
+and closes it, but callers that need to observe flush errors should call
+`flush()` first. Ensure all producer threads have stopped before destruction.
 
-```sh
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
+Built-in numeric levels are stable: `0 ERROR`, `1 DEBUG`, `2 WARN`, `3 INFO`,
+and `4 CHAT`. Custom names may be registered for identifiers greater than 4.
+Unregistered identifiers are written as `LEVEL_<id>`.
+
+## Records and encoding
+
+The first line is a machine-readable start-time header:
+
+```text
+# glogger-start-v1:YYYY-MM-DDTHH:MM:SSZ
 ```
 
-## Things to know
+Record timestamps use UTC in the form `[YYYY-MM-DDTHH:MM:SSZ]`; each record is
+newline-terminated. Embedded message newlines are retained. The message and
+custom level name must be valid UTF-8. `TextEncoding::Utf8` preserves UTF-8.
+`TextEncoding::AsciiEscaped` emits ASCII, escaping non-ASCII Unicode scalar
+values as `\uXXXX` or `\UXXXXXXXX`; invalid UTF-8 and surrogate code points are
+rejected. Custom level names are kept ASCII in records; non-ASCII scalar values
+and control characters in those names are escaped independently of message
+encoding.
 
-- Call `init` before logging. Calls to `log` before successful initialization are ignored.
-- `init` returns `false` when the log directory or file cannot be opened. Calling it again closes the prior file and switches to the new directory.
-- Each initialization truncates the new `latest.log`. If one already exists there, the logger tries to rename it using the timestamp on its first line.
-- Logging is synchronous. Do not call the same `Logger` instance concurrently from multiple threads.
-- Levels are `ERR`, `DBG`, `WARN`, `INFO`, and `CHAT`.
+## Archival
 
-The C interface is declared in [include/glogger_c.h](include/glogger_c.h); create a logger, check `glogger_init`, log with level integers `0` through `4` in the order above, then destroy it.
+If the active file exists at initialization:
 
-See [examples/basic.cpp](examples/basic.cpp) for the runnable example and [tests/test_glogger.cpp](tests/test_glogger.cpp) for the reinitialization check.
+- `Overwrite` stages the new output before replacing the old active log.
+- `HeaderTimestamp` archives using the timestamp in the first-line header.
+  It reads this v2 header and the legacy `YYYYMMDD_HHMMSS` header.
+- `FileMetadataTimestamp` uses the filesystem last-write time. This is the
+  documented portable fallback because C++23 does not expose file birth time.
+- `IncrementingNumber` chooses the first available suffix, such as
+  `application.1.log`.
+
+Archives go to `archive_directory`, or to the active directory when it is
+empty. Timestamp collisions receive a numeric suffix. An archival failure
+returns an error and does not proceed to truncate the old active file. When
+moving between filesystems, the source is removed only after its archive copy
+completes successfully.
+
+## C API
+
+Include `glogger_c.h` from C or C++. Call `glogger_create`, initialize with a
+`glogger_config` whose `struct_size` is `sizeof(glogger_config)` and whose
+version is `GLOGGER_CONFIG_VERSION_1`, then check every returned status. String
+pointers in the configuration are copied during initialization. Null required
+arguments return `GLOGGER_STATUS_INVALID_ARGUMENT`. All C entry points contain
+C++ exceptions.
+
+## Build, tests, and benchmark
+
+The default build is shared. Configure a static library from the same project
+with `-DGLOGGER_BUILD_SHARED=OFF`:
+
+```sh
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+
+cmake -S . -B build-static -DBUILD_TESTING=ON -DGLOGGER_BUILD_SHARED=OFF
+cmake --build build-static
+ctest --test-dir build-static --output-on-failure
+```
+
+The optional `glogger_benchmark` target runs 100 producer threads, each
+scheduled for 100 records per second, with a five-second warm-up and a
+60-second measurement. Each message contains 512 Unicode scalar values with
+equal 1-, 2-, 3-, and 4-byte UTF-8 widths. UTF-8 and ASCII-escaped output are
+measured separately. It reports throughput, payload byte rate, producer-call
+latency percentiles, CPU, memory, OS, compiler, storage device, filesystem,
+logger mode, and build configuration, then verifies record count and content
+integrity. A shared, hard 5 GiB output budget covers both encodings. Each run
+uses a unique temporary subdirectory that is removed when the benchmark exits.
+Set `GLOGGER_BENCH_DIRECTORY`, `GLOGGER_BENCH_STORAGE_DEVICE`, and
+`GLOGGER_BENCH_FILESYSTEM` to select and identify the local storage used. The
+benchmark is not part of routine tests. This reduced producer count is useful
+for bounded local measurements, not for validating the 10,000-producer
+throughput goal; a reference system and an appropriately bounded run must be
+fixed before treating that goal as a pass/fail threshold.
+
+```sh
+cmake -S . -B build-bench -DGLOGGER_BUILD_BENCHMARK=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build-bench --target glogger_benchmark
+./build-bench/glogger_benchmark
+```
+
+The synchronous implementation is a correctness-first baseline. If it misses
+the throughput goal on the agreed reference system, a bounded queued mode
+must be added and measured separately; it must block rather than drop on queue
+saturation and surface writer errors through `flush()`.
